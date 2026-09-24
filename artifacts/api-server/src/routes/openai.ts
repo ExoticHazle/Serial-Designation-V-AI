@@ -21,7 +21,10 @@ The user has entered a private channel marked AXO-SDV. Treat the interaction lik
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 router.post("/access/verify", (req, res) => {
-  if (typeof req.body?.password !== "string" || req.body.password !== ACCESS_PASSWORD) {
+  if (
+    typeof req.body?.password !== "string" ||
+    req.body.password !== ACCESS_PASSWORD
+  ) {
     res.status(401).json({ error: "Clé d'accès incorrecte." });
     return;
   }
@@ -38,7 +41,11 @@ router.post("/access/verify", (req, res) => {
 });
 
 router.post("/access/logout", (_req, res) => {
-  res.clearCookie(ACCESS_COOKIE, { httpOnly: true, sameSite: "lax", path: "/" });
+  res.clearCookie(ACCESS_COOKIE, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
   res.status(204).end();
 });
 
@@ -48,7 +55,9 @@ router.get("/access/status", (req, res) => {
 
 router.post("/openai/chat", async (req, res) => {
   if (req.signedCookies?.[ACCESS_COOKIE] !== "granted") {
-    res.status(401).json({ error: "Accès verrouillé. Ouvre d'abord le canal privé." });
+    res
+      .status(401)
+      .json({ error: "Accès verrouillé. Ouvre d'abord le canal privé." });
     return;
   }
 
@@ -61,7 +70,9 @@ router.post("/openai/chat", async (req, res) => {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: "La connexion Gemini au noyau IA n'est pas configurée." });
+    res
+      .status(500)
+      .json({ error: "La connexion Gemini au noyau IA n'est pas configurée." });
     return;
   }
 
@@ -72,36 +83,43 @@ router.post("/openai/chat", async (req, res) => {
 
   try {
     const messages: ChatMessage[] = parsed.data.messages.slice(-38);
-    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: SYSTEM_PROMPT }],
+          },
+          contents: messages.map((message) => ({
+            role: message.role === "assistant" ? "model" : "user",
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: {
+            maxOutputTokens: 8192,
+          },
+        }),
       },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: SYSTEM_PROMPT }],
-        },
-        contents: messages.map((message) => ({
-          role: message.role === "assistant" ? "model" : "user",
-          parts: [{ text: message.content }],
-        })),
-        generationConfig: {
-          maxOutputTokens: 8192,
-        },
-      }),
-    });
+    );
 
     if (!upstream.ok || !upstream.body) {
       const errorText = await upstream.text();
-      req.log.error({ status: upstream.status, errorText }, "Gemini request failed");
+      req.log.error(
+        { status: upstream.status, errorText },
+        "Gemini request failed",
+      );
       const providerError = errorText.toLowerCase();
-      const message = upstream.status === 401
-        ? "La clé Gemini est invalide ou révoquée."
-        : upstream.status === 429
-          ? "Le quota Gemini est épuisé. Vérifie les limites de Google AI Studio."
-          : providerError.includes("api key")
-            ? "La clé Gemini est invalide ou non autorisée."
-            : "Le noyau Gemini ne répond pas pour le moment.";
+      const message =
+        upstream.status === 401
+          ? "La clé Gemini est invalide ou révoquée."
+          : upstream.status === 429
+            ? "Le quota Gemini est épuisé. Vérifie les limites de Google AI Studio."
+            : providerError.includes("api key")
+              ? "La clé Gemini est invalide ou non autorisée."
+              : "Le noyau Gemini ne répond pas pour le moment.";
       res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
       res.end();
       return;
@@ -129,9 +147,14 @@ router.post("/openai/chat", async (req, res) => {
 
         try {
           const parsedChunk = JSON.parse(data) as {
-            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+            candidates?: Array<{
+              content?: { parts?: Array<{ text?: string }> };
+            }>;
           };
-          const content = parsedChunk.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+          const content =
+            parsedChunk.candidates?.[0]?.content?.parts
+              ?.map((part) => part.text ?? "")
+              .join("") ?? "";
           if (content) sendEvent({ content });
         } catch {
           // Ignore malformed provider chunks; the next SSE line carries the rest.
@@ -151,8 +174,13 @@ router.post("/openai/chat", async (req, res) => {
   }
 });
 
-function sendError(res: { write: (chunk: string) => unknown; end: () => void }) {
-  res.write(`data: ${JSON.stringify({ error: "La liaison avec V a été interrompue." })}\n\n`);
+function sendError(res: {
+  write: (chunk: string) => unknown;
+  end: () => void;
+}) {
+  res.write(
+    `data: ${JSON.stringify({ error: "La liaison avec V a été interrompue." })}\n\n`,
+  );
   res.end();
 }
 
