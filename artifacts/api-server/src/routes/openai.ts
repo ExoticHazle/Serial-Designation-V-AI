@@ -89,7 +89,13 @@ router.post("/openai/chat", async (req, res) => {
     if (!upstream.ok || !upstream.body) {
       const errorText = await upstream.text();
       req.log.error({ status: upstream.status, errorText }, "OpenAI request failed");
-      res.write(`data: ${JSON.stringify({ error: "Le noyau IA ne répond pas pour le moment." })}\n\n`);
+      const providerError = errorText.toLowerCase();
+      const message = upstream.status === 401
+        ? "La clé OpenAI est invalide ou révoquée."
+        : upstream.status === 429 && providerError.includes("credit")
+          ? "Le quota OpenAI est épuisé. Ajoute des crédits ou utilise un fournisseur avec quota gratuit."
+          : "Le noyau IA ne répond pas pour le moment.";
+      res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
       res.end();
       return;
     }
