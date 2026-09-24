@@ -59,9 +59,9 @@ router.post("/openai/chat", async (req, res) => {
     return;
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: "La connexion au noyau IA n'est pas configurée." });
+    res.status(500).json({ error: "La connexion Gemini au noyau IA n'est pas configurée." });
     return;
   }
 
@@ -72,24 +72,37 @@ router.post("/openai/chat", async (req, res) => {
 
   try {
     const messages: ChatMessage[] = parsed.data.messages.slice(-38);
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        stream: true,
-        max_tokens: 900,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+        system_instruction: {
+          parts: [{ text: SYSTEM_PROMPT }],
+        },
+        contents: messages.map((message) => ({
+          role: message.role === "assistant" ? "model" : "user",
+          parts: [{ text: message.content }],
+        })),
+        generationConfig: {
+          maxOutputTokens: 8192,
+        },
       }),
     });
 
     if (!upstream.ok || !upstream.body) {
       const errorText = await upstream.text();
-      req.log.error({ status: upstream.status, errorText }, "OpenAI request failed");
-      res.write(`data: ${JSON.stringify({ error: "Le noyau IA ne répond pas pour le moment." })}\n\n`);
+      req.log.error({ status: upstream.status, errorText }, "Gemini request failed");
+      const providerError = errorText.toLowerCase();
+      const message = upstream.status === 401
+        ? "La clé Gemini est invalide ou révoquée."
+        : upstream.status === 429
+          ? "Le quota Gemini est épuisé. Vérifie les limites de Google AI Studio."
+          : providerError.includes("api key")
+            ? "La clé Gemini est invalide ou non autorisée."
+            : "Le noyau Gemini ne répond pas pour le moment.";
+      res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
       res.end();
       return;
     }
@@ -116,12 +129,12 @@ router.post("/openai/chat", async (req, res) => {
 
         try {
           const parsedChunk = JSON.parse(data) as {
-            choices?: Array<{ delta?: { content?: string } }>;
+            candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
           };
-          const content = parsedChunk.choices?.[0]?.delta?.content;
+          const content = parsedChunk.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
           if (content) sendEvent({ content });
         } catch {
-          // Ignore incomplete provider chunks; the next SSE line carries the rest.
+          // Ignore malformed provider chunks; the next SSE line carries the rest.
         }
       }
 
@@ -131,7 +144,7 @@ router.post("/openai/chat", async (req, res) => {
     sendEvent({ done: true });
     res.end();
   } catch (error) {
-    req.log.error({ error }, "OpenAI stream failed");
+    req.log.error({ error }, "Gemini stream failed");
     if (!res.writableEnded) {
       sendError(res);
     }
