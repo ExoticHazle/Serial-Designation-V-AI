@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Serial Designation V AI"
+description = "Une expérience web privée et interactive qui donne vie à Serial Designation V, avec un accès par mot de passe et une conversation IA immersive."
+version = "1.0.0"
+id = "artifacts/serial-v-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22950
+
+[services.development]
+run = "pnpm --filter @workspace/serial-v-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/serial-v-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/serial-v-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22950"
+BASE_PATH = "/"
