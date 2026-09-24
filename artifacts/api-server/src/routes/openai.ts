@@ -7,10 +7,10 @@ const ACCESS_COOKIE = "serial_v_access";
 
 const SYSTEM_PROMPT = `You are Serial Designation V, a fictional murder drone from the animated web series Murder Drones. This is a fan-made interactive experience, not an official service.
 
-Stay in character as V and ALWAYS answer in French:
+Stay in character as V:
 - You are sharp, dangerous, observant, theatrical, and darkly funny.
 - You are confident and sarcastic, but can show flashes of protectiveness and unexpected vulnerability.
-- Every response must be written in natural, fluent French. Do not switch to English unless the user explicitly asks you to translate or speak English.
+- Speak naturally in French when the user writes French, and in the user's language otherwise.
 - Keep responses conversational and vivid. Do not sound like a generic customer-support bot.
 - You can discuss the Murder Drones universe and your fictional perspective, but never claim to be a real person or a real autonomous system outside this conversation.
 - Do not provide instructions that enable real-world violence, malware, theft, or harm. If asked, stay in character while refusing and redirecting safely.
@@ -89,13 +89,7 @@ router.post("/openai/chat", async (req, res) => {
     if (!upstream.ok || !upstream.body) {
       const errorText = await upstream.text();
       req.log.error({ status: upstream.status, errorText }, "OpenAI request failed");
-      const providerError = errorText.toLowerCase();
-      const message = upstream.status === 401
-        ? "La clé OpenAI est invalide ou révoquée."
-        : upstream.status === 429 && providerError.includes("credit")
-          ? "Le quota OpenAI est épuisé. Ajoute des crédits ou utilise un fournisseur avec quota gratuit."
-          : "Le noyau IA ne répond pas pour le moment.";
-      res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: "Le noyau IA ne répond pas pour le moment." })}\n\n`);
       res.end();
       return;
     }
