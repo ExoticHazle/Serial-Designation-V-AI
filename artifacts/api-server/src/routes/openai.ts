@@ -83,29 +83,39 @@ router.post("/openai/chat", async (req, res) => {
 
   try {
     const messages: ChatMessage[] = parsed.data.messages.slice(-38);
-    const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: SYSTEM_PROMPT }],
-          },
-          contents: messages.map((message) => ({
-            role: message.role === "assistant" ? "model" : "user",
-            parts: [{ text: message.content }],
-          })),
-          generationConfig: {
-            maxOutputTokens: 8192,
-          },
-        }),
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
+    const geminiBody = JSON.stringify({
+      system_instruction: {
+        parts: [{ text: SYSTEM_PROMPT }],
       },
-    );
+      contents: messages.map((message) => ({
+        role: message.role === "assistant" ? "model" : "user",
+        parts: [{ text: message.content }],
+      })),
+      generationConfig: {
+        maxOutputTokens: 8192,
+      },
+    });
 
-    if (!upstream.ok || !upstream.body) {
+    const MAX_ATTEMPTS = 3; // 1 essai initial + 2 retries
+    let upstream: Response | undefined;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      upstream = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: geminiBody,
+      });
+
+      if (upstream.status !== 503 || attempt === MAX_ATTEMPTS) break;
+
+      req.log.warn(
+        { attempt, status: upstream.status },
+        "Gemini overloaded, retrying",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // 1s puis 2s
+    }
+
+    if (!upstream || !upstream.ok || !upstream.body) {
       const errorText = await upstream.text();
       req.log.error(
         { status: upstream.status, errorText },
