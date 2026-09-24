@@ -58,6 +58,18 @@ paths:
       responses:
         "204":
           description: Access closed
+  /access/status:
+    get:
+      operationId: getSerialVAccessStatus
+      tags: [openai]
+      summary: Check whether the private channel is open
+      responses:
+        "200":
+          description: Current access state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessStatus"
   /openai/chat:
     post:
       operationId: sendOpenaiChat

@@ -39,6 +39,14 @@ export const LogoutSerialVAccessResponse = zod.void()
 
 
 /**
+ * @summary Check whether the private channel is open
+ */
+export const GetSerialVAccessStatusResponse = zod.object({
+  "granted": zod.boolean()
+})
+
+
+/**
  * @summary Stream a response from Serial Designation V
  */
 

@@ -17,7 +17,7 @@ const STORAGE_KEY = 'serial-v-channel';
 const greeting: Message = {
   id: 'v-greeting',
   role: 'assistant',
-  content: 'You made it past the door. I am V. The channel is private, the signal is clean, and I am listening. Say something interesting.',
+  content: 'Tu as passé la porte. Je suis V. Le canal est privé, le signal est propre, et je t’écoute. Dis quelque chose d’intéressant.',
 };
 
 function readSession() {
@@ -313,9 +313,33 @@ function UnlockedChat({ onClear }: { onClear: () => void }) {
 }
 
 function Home() {
-  const [unlocked, setUnlocked] = useState(() => {
-    try { return sessionStorage.getItem('serial-v-unlocked') === 'true'; } catch { return false; }
-  });
+  const [unlocked, setUnlocked] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/access/status')
+      .then((response) => response.json() as Promise<{ granted?: boolean }>)
+      .then(({ granted }) => {
+        if (!active) return;
+        if (granted) {
+          setUnlocked(true);
+        } else {
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem('serial-v-unlocked');
+          } catch {
+            // Private browsing may refuse storage access.
+          }
+        }
+      })
+      .catch(() => {
+        if (active) setUnlocked(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function unlock() {
     try { sessionStorage.setItem('serial-v-unlocked', 'true'); } catch { /* private browsing can refuse storage */ }

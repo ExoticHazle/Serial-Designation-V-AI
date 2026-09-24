@@ -294,6 +294,83 @@ export const useLogoutSerialVAccess = <TError = ErrorType<unknown>,
       return useMutation(getLogoutSerialVAccessMutationOptions(options));
     }
 
+export const getGetSerialVAccessStatusUrl = () => {
+
+
+
+
+  return `/api/access/status`
+}
+
+/**
+ * @summary Check whether the private channel is open
+ */
+export const getSerialVAccessStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<AccessStatus> => {
+
+  return customFetch<AccessStatus>(getGetSerialVAccessStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSerialVAccessStatusQueryKey = () => {
+    return [
+    `/api/access/status`
+    ] as const;
+    }
+
+
+export const getGetSerialVAccessStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSerialVAccessStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSerialVAccessStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSerialVAccessStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSerialVAccessStatus>>> = ({ signal }) => getSerialVAccessStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSerialVAccessStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSerialVAccessStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSerialVAccessStatus>>>
+export type GetSerialVAccessStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check whether the private channel is open
+ */
+
+export function useGetSerialVAccessStatus<TData = Awaited<ReturnType<typeof getSerialVAccessStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSerialVAccessStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSerialVAccessStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getSendOpenaiChatUrl = () => {
 
 
