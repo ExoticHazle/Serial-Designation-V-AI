@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: openai
+    description: Interactive AI chat operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,66 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /access/verify:
+    post:
+      operationId: verifySerialVAccess
+      tags: [openai]
+      summary: Verify the private channel access key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccessVerifyInput"
+      responses:
+        "200":
+          description: Access granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessStatus"
+        "401":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+  /access/logout:
+    post:
+      operationId: logoutSerialVAccess
+      tags: [openai]
+      summary: Close the private channel
+      responses:
+        "204":
+          description: Access closed
+  /openai/chat:
+    post:
+      operationId: sendOpenaiChat
+      tags: [openai]
+      summary: Stream a response from Serial Designation V
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenaiChatInput"
+      responses:
+        "200":
+          description: SSE stream of assistant text chunks
+          content:
+            text/event-stream: {}
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
+        "500":
+          description: AI provider error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenaiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +95,49 @@ components:
           type: string
       required:
         - status
+    OpenaiChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+      required:
+        - role
+        - content
+    OpenaiChatInput:
+      type: object
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/OpenaiChatMessage"
+      required:
+        - messages
+    OpenaiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    AccessVerifyInput:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+      required:
+        - password
+    AccessStatus:
+      type: object
+      properties:
+        granted:
+          type: boolean
+      required:
+        - granted
 
